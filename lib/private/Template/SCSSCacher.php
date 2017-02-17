@@ -85,11 +85,10 @@ class SCSSCacher {
 			$folder = $this->appData->newFolder($app);
 		}
 
-		if($this->isCached($fileNameCSS, $fileNameSCSS, $folder, $path)) {
+		if($this->isCached($fileNameCSS, $fileNameSCSS, $folder, $path) && !$this->variablesChanged($fileNameCSS, $folder)) {
 			return true;
-		} else {
-			return $this->cache($path, $fileNameCSS, $fileNameSCSS, $folder, $webDir);
 		}
+		return $this->cache($path, $fileNameCSS, $fileNameSCSS, $folder, $webDir);
 	}
 
 	/**
@@ -101,7 +100,7 @@ class SCSSCacher {
 	 * @return boolean
 	 */
 	private function isCached($fileNameCSS, $fileNameSCSS, ISimpleFolder $folder, $path) {
-		try{
+		try {
 			$cachedFile = $folder->getFile($fileNameCSS);
 			if( $cachedFile->getMTime() > filemtime($path.'/'.$fileNameSCSS)
 				&& $cachedFile->getSize() > 0 ) {
@@ -109,6 +108,27 @@ class SCSSCacher {
 			}
 		} catch(NotFoundException $e) {
 			return false;
+		}
+		return false;
+	}
+
+	/**
+	 * Check if the variables file has changed
+	 * @param string $fileNameCSS
+	 * @param ISimpleFolder $folder
+	 * @return bool
+	 */
+	private function variablesChanged($fileNameCSS, ISimpleFolder $folder) {
+		$variablesFile = \OC::$SERVERROOT . '/core/css/variables.scss';
+		try {
+			$cachedFile = $folder->getFile($fileNameCSS);
+			if ($cachedFile->getMTime() < filemtime($variablesFile)
+				|| $cachedFile->getSize() === 0
+			) {
+				return true;
+			}
+		} catch (NotFoundException $e) {
+			return true;
 		}
 		return false;
 	}
@@ -124,7 +144,10 @@ class SCSSCacher {
 	 */
 	private function cache($path, $fileNameCSS, $fileNameSCSS, ISimpleFolder $folder, $webDir) {
 		$scss = new Compiler();
-		$scss->setImportPaths($path);
+		$scss->setImportPaths([
+			$path,
+			\OC::$SERVERROOT . '/core/css/',
+		]);
 		if($this->systemConfig->getValue('debug')) {
 			// Debug mode
 			$scss->setFormatter(Expanded::class);
@@ -142,7 +165,9 @@ class SCSSCacher {
 
 		// Compile
 		try {
-			$compiledScss = $scss->compile('@import "'.$fileNameSCSS.'";');
+			$compiledScss = $scss->compile(
+				'@import "variables.scss";' .
+				'@import "'.$fileNameSCSS.'";');
 		} catch(ParserException $e) {
 			$this->logger->error($e, ['app' => 'core']);
 			return false;
