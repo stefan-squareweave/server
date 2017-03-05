@@ -29,6 +29,7 @@ use OC\SystemConfig;
 use OCP\Files\IAppData;
 use OCP\Files\NotFoundException;
 use OCP\Files\SimpleFS\ISimpleFolder;
+use OCP\IConfig;
 use OCP\ILogger;
 use OCP\IURLGenerator;
 
@@ -43,8 +44,8 @@ class SCSSCacher {
 	/** @var IURLGenerator */
 	protected $urlGenerator;
 
-	/** @var SystemConfig */
-	protected $systemConfig;
+	/** @var IConfig */
+	protected $config;
 
 	/**
 	 * @param ILogger $logger
@@ -52,11 +53,11 @@ class SCSSCacher {
 	 * @param IURLGenerator $urlGenerator
 	 * @param SystemConfig $systemConfig
 	 */
-	public function __construct(ILogger $logger, IAppData $appData, IURLGenerator $urlGenerator, SystemConfig $systemConfig) {
+	public function __construct(ILogger $logger, IAppData $appData, IURLGenerator $urlGenerator, IConfig $config) {
 		$this->logger = $logger;
 		$this->appData = $appData;
 		$this->urlGenerator = $urlGenerator;
-		$this->systemConfig = $systemConfig;
+		$this->config = $config;
 	}
 
 	/**
@@ -148,7 +149,7 @@ class SCSSCacher {
 			$path,
 			\OC::$SERVERROOT . '/core/css/',
 		]);
-		if($this->systemConfig->getValue('debug')) {
+		if($this->config->getSystemValue('debug')) {
 			// Debug mode
 			$scss->setFormatter(Expanded::class);
 			$scss->setLineNumberStyle(Compiler::LINE_COMMENTS);
@@ -191,7 +192,7 @@ class SCSSCacher {
 	private function rebaseUrls($css, $webDir) {
 		$re = '/url\([\'"]([\.\w?=\/-]*)[\'"]\)/x';
 		// OC\Route\Router:75
-		if(($this->systemConfig->getValue('htaccess.IgnoreFrontController', false) === true || getenv('front_controller_active') === 'true')) {
+		if(($this->config->getSystemValue('htaccess.IgnoreFrontController', false) === true || getenv('front_controller_active') === 'true')) {
 			$subst = 'url(\'../../'.$webDir.'/$1\')';	
 		} else {
 			$subst = 'url(\'../../../'.$webDir.'/$1\')';
